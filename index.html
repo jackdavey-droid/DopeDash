@@ -290,6 +290,7 @@
         .accent-cookie { --accent: #ffd34f; }
         .accent-subway { --accent: #ff704d; }
 
+        /* More colour, without sacrificing contrast or keyboard access. */
         .spectrum-bar {
             height: 4px;
             margin: 1.45rem auto 0;
@@ -377,6 +378,8 @@
             font-weight: 700;
         }
 
+
+        /* Live school timetable and countdown */
         .class-timer {
             --timer-accent: #b66bff;
             position: relative;
@@ -588,6 +591,7 @@
             letter-spacing: .06em;
         }
 
+        /* Neon public guest chat */
         .nav-chat { --chip-accent: #b66bff; }
         .chatroom {
             --chat-accent: #b66bff;
@@ -907,13 +911,15 @@
                         <span class="vpn-tag">[ VPN REQUIRED ]</span>
                         <span class="card-description">Endless Runner // Arcade</span>
                         <span class="card-action">Open Subway Surfers <span aria-hidden="true">→</span></span>
-                    </a>
+
                     <a href="https://nuts.gg/play/pDSoWmhW" target="_blank" rel="noopener noreferrer" class="link-card accent-games" data-search="nuts.gg nuts gg games browser gaming" data-bio="Opens Nuts.gg in a new tab.">
                         <span class="card-top"><span class="card-index">08 / GAME</span><span class="card-arrow" aria-hidden="true">↗</span></span>
                         <span class="card-title">Nuts.gg</span>
                         <span class="vpn-tag">[ VPN REQUIRED ]</span>
                         <span class="card-description">Gaming Hub</span>
                         <span class="card-action">Open Nuts.gg <span aria-hidden="true">→</span></span>
+                    </a>
+
                     </a>
                 </div>
             </section>
@@ -945,7 +951,6 @@
                     </a>
                 </div>
             </section>
-
             <section class="section" aria-labelledby="media-heading" data-section>
                 <div class="section-heading">
                     <h2 class="section-title" id="media-heading">Media</h2>
@@ -973,7 +978,6 @@
                     </a>
                 </div>
             </section>
-
             <section class="chatroom" id="chatroom" aria-labelledby="chatroom-heading">
                 <div class="chat-header">
                     <div>
@@ -1009,134 +1013,22 @@
             <span>Built for your browser · External links open in a new tab</span>
         </footer>
     </div>
-
     <div id="hover-bio" class="hover-bio" role="tooltip" hidden></div>
 
-    <script type="module">
-        (() => {
-            const SUPABASE_URL = "YOUR_SUPABASE_URL";
-            const SUPABASE_PUBLISHABLE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
-
-            const form = document.querySelector("#chat-form");
-            const nameInput = document.querySelector("#chat-username");
-            const messageInput = document.querySelector("#chat-message-input");
-            const sendButton = document.querySelector("#chat-send");
-            const charCount = document.querySelector("#chat-char-count");
-            const feedback = document.querySelector("#chat-feedback");
-            const messagesContainer = document.querySelector("#chat-messages");
-            const chatEmpty = document.querySelector("#chat-empty");
-            const connectionStatus = document.querySelector("#chat-connection-status");
-
-            const MAX_MESSAGES = 100;
-            const PREVIEW_KEY = "dopedash-chat-preview";
-            const NICKNAME_KEY = "dopedash-chat-nickname";
-
-            let client = null;
-            let isPreview = false;
-            let liveReady = false;
-            let lastSentAt = 0;
-
+    
             const configured =
                 SUPABASE_URL.startsWith("https://") &&
                 SUPABASE_URL.endsWith(".supabase.co") &&
                 SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
 
-            function validName(name) {
-                return /^[A-Za-z0-9 _-]{1,20}$/.test(name);
-            }
-
-            function setStatus(label, mode, title) {
-                connectionStatus.textContent = label;
-                connectionStatus.dataset.mode = mode;
-                connectionStatus.title = title;
-            }
-
-            function setComposerEnabled(enabled) {
-                nameInput.disabled = !enabled;
-                messageInput.disabled = !enabled;
-                sendButton.disabled = !enabled;
-            }
-
-            function safeLocalRead() {
-                try {
-                    const saved = JSON.parse(localStorage.getItem(PREVIEW_KEY) || "[]");
-                    return Array.isArray(saved) ? saved : [];
-                } catch (_) {
-                    return [];
-                }
-            }
-
-            function saveLocalPreview() {
-                try {
-                    const messages = [...messagesContainer.querySelectorAll(".chat-message")].map(item => ({
-                        id: item.dataset.id,
-                        username: item.querySelector(".chat-message-name")?.textContent || "Guest",
-                        message: item.querySelector(".chat-message-text")?.textContent || "",
-                        created_at: item.dataset.createdAt || new Date().toISOString()
-                    }));
-                    localStorage.setItem(PREVIEW_KEY, JSON.stringify(messages.slice(-MAX_MESSAGES)));
-                } catch (_) {}
-            }
-
-            function appendMessage(item) {
-                if (!item || typeof item.username !== "string" || typeof item.message !== "string") return;
-
-                if (item.id != null && messagesContainer.querySelector(`[data-id="${CSS.escape(String(item.id))}"]`)) return;
-
-                chatEmpty.hidden = true;
-
-                const messageElement = document.createElement("article");
-                messageElement.className = "chat-message";
-                if (item.id != null) messageElement.dataset.id = String(item.id);
-                messageElement.dataset.createdAt = item.created_at || new Date().toISOString();
-
-                const head = document.createElement("div");
-                head.className = "chat-message-head";
-
-                const username = document.createElement("span");
-                username.className = "chat-message-name";
-                username.textContent = item.username.slice(0, 20);
-
-                const timestamp = document.createElement("time");
-                timestamp.className = "chat-message-time";
-                const date = new Date(item.created_at || Date.now());
-                timestamp.dateTime = date.toISOString();
-                timestamp.textContent = new Intl.DateTimeFormat(undefined, {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                }).format(date);
-
-                const messageText = document.createElement("p");
-                messageText.className = "chat-message-text";
-                messageText.textContent = item.message.slice(0, 280);
-
-                head.append(username, timestamp);
-                messageElement.append(head, messageText);
-                messagesContainer.append(messageElement);
-
-                while (messagesContainer.querySelectorAll(".chat-message").length > MAX_MESSAGES) {
-                    messagesContainer.querySelector(".chat-message")?.remove();
-                }
-
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-
-            function renderInitialMessages(items) {
-                messagesContainer.querySelectorAll(".chat-message").forEach(item => item.remove());
-                chatEmpty.hidden = items.length > 0;
-                items.slice(-MAX_MESSAGES).forEach(appendMessage);
-            }
-
             async function startPreviewMode() {
                 isPreview = true;
                 renderInitialMessages(safeLocalRead());
-
                 setStatus(
                     "LOCAL PREVIEW",
                     "preview",
                     "Preview mode // visible only in this browser"
                 );
-
                 setComposerEnabled(true);
 
                 window.addEventListener("storage", event => {
@@ -1145,7 +1037,10 @@
                     try {
                         const incoming = JSON.parse(event.newValue);
                         if (!Array.isArray(incoming)) return;
-                        renderInitialMessages(incoming);
+
+                        for (const item of incoming) {
+                            appendMessage(item);
+                        }
                     } catch (_) {}
                 });
             }
@@ -1204,7 +1099,10 @@
                                     return;
                                 }
 
-                                renderInitialMessages((data || []).reverse());
+                                renderInitialMessages(
+                                    (data || []).reverse()
+                                );
+
                             } else if (
                                 channelStatus === "CHANNEL_ERROR" ||
                                 channelStatus === "TIMED_OUT" ||
@@ -1223,6 +1121,7 @@
                                     "Chat couldn't connect. Check your Supabase settings, database permissions, and Realtime configuration.";
                             }
                         });
+
                 } catch (error) {
                     liveReady = false;
 
@@ -1233,50 +1132,35 @@
                     );
                     setComposerEnabled(false);
 
-                    feedback.textContent = "Chat couldn't load: " + error.message;
+                    feedback.textContent =
+                        "Chat couldn't load: " + error.message;
                 }
             }
 
-            try {
-                nameInput.value = localStorage.getItem(NICKNAME_KEY) || "";
-            } catch (_) {}
-
-            messageInput.addEventListener("input", () => {
-                charCount.textContent = `${messageInput.value.length}/280`;
-            });
 
             form.addEventListener("submit", async event => {
                 event.preventDefault();
                 feedback.textContent = "";
-
                 const username = nameInput.value.trim().replace(/\s+/g, " ");
                 const message = messageInput.value.trim();
-
                 if (!validName(username)) {
                     feedback.textContent = "Use 1–20 characters for your nickname: letters, numbers, spaces, _ or -.";
                     nameInput.focus();
                     return;
                 }
-
                 if (!message || message.length > 280) {
                     feedback.textContent = "Write a message up to 280 characters.";
                     messageInput.focus();
                     return;
                 }
-
                 const now = Date.now();
-
                 if (now - lastSentAt < 3500) {
                     feedback.textContent = "Give it a few seconds before sending another message.";
                     return;
                 }
-
                 lastSentAt = now;
                 nameInput.value = username;
-
-                try {
-                    localStorage.setItem(NICKNAME_KEY, username);
-                } catch (_) {}
+                try { localStorage.setItem("dopedash-chat-nickname", username); } catch (_) {}
 
                 if (isPreview) {
                     const localMessage = {
@@ -1285,7 +1169,6 @@
                         message,
                         created_at: new Date(now).toISOString()
                     };
-
                     appendMessage(localMessage);
                     saveLocalPreview();
                     messageInput.value = "";
@@ -1297,79 +1180,67 @@
                     feedback.textContent = "Chat isn't connected yet. Try again in a moment.";
                     return;
                 }
-
                 sendButton.disabled = true;
-
-                const { error } = await client
-                    .from("chat_messages")
-                    .insert({ username, message });
-
+                const { error } = await client.from("chat_messages").insert({ username, message });
                 sendButton.disabled = false;
-
                 if (error) {
                     feedback.textContent = error.message && error.message.includes("Please wait")
                         ? "Please wait a few seconds before posting again."
                         : "Message didn't send. Check the chat connection and try again.";
                     return;
                 }
-
                 messageInput.value = "";
                 charCount.textContent = "0/280";
                 messageInput.focus();
             });
 
-            if (configured) {
-                startLiveMode();
-            } else {
-                startPreviewMode();
-            }
+            if (configured) startLiveMode();
+            else startPreviewMode();
         })();
     </script>
 
     <script>
         (() => {
-            const searchInput = document.querySelector("#link-search");
-            const cards = [...document.querySelectorAll(".link-card")];
-            const sections = [...document.querySelectorAll("[data-section]")];
-            const count = document.querySelector("#results-count");
-            const emptyState = document.querySelector("#empty-state");
-            const clock = document.querySelector("#local-clock");
+            const searchInput = document.querySelector('#link-search');
+            const cards = [...document.querySelectorAll('.link-card')];
+            const sections = [...document.querySelectorAll('[data-section]')];
+            const count = document.querySelector('#results-count');
+            const emptyState = document.querySelector('#empty-state');
+            const clock = document.querySelector('#local-clock');
 
             function updateClock() {
                 clock.textContent = new Intl.DateTimeFormat(undefined, {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: false
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
                 }).format(new Date());
             }
 
-            const countdown = document.querySelector("#class-countdown");
-            const timerLabel = document.querySelector("#timer-label");
-            const timerTarget = document.querySelector("#timer-target");
-            const timerNote = document.querySelector("#timer-note");
-            const timerStatus = document.querySelector("#timer-status");
-            const currentPeriod = document.querySelector("#current-period");
-            const currentPeriodDetail = document.querySelector("#current-period-detail");
-            const timerProgress = document.querySelector("#timer-progress");
-            const timerProgressFill = document.querySelector("#timer-progress-fill");
-            const scheduleItems = [...document.querySelectorAll(".schedule-item")];
+
+
+            // Live school countdown: uses the visitor's device-local time.
+            const countdown = document.querySelector('#class-countdown');
+            const timerLabel = document.querySelector('#timer-label');
+            const timerTarget = document.querySelector('#timer-target');
+            const timerNote = document.querySelector('#timer-note');
+            const timerStatus = document.querySelector('#timer-status');
+            const currentPeriod = document.querySelector('#current-period');
+            const currentPeriodDetail = document.querySelector('#current-period-detail');
+            const timerProgress = document.querySelector('#timer-progress');
+            const timerProgressFill = document.querySelector('#timer-progress-fill');
+            const scheduleItems = [...document.querySelectorAll('.schedule-item')];
 
             const timetable = [
-                { key: "ako1", name: "AKO 1", start: 9 * 60 + 10, end: 10 * 60 + 40, startText: "9:10 AM", endText: "10:40 AM", next: "Interval starts in", accent: "#00ffff" },
-                { key: "interval", name: "INTERVAL", start: 10 * 60 + 40, end: 11 * 60 + 15, startText: "10:40 AM", endText: "11:15 AM", next: "AKO 2 starts in", accent: "#ff593d" },
-                { key: "ako2", name: "AKO 2", start: 11 * 60 + 15, end: 12 * 60 + 45, startText: "11:15 AM", endText: "12:45 PM", next: "Lunch starts in", accent: "#ff0099" },
-                { key: "lunch", name: "LUNCH", start: 12 * 60 + 45, end: 13 * 60 + 30, startText: "12:45 PM", endText: "1:30 PM", next: "AKO 3 starts in", accent: "#ccff00" },
-                { key: "ako3", name: "AKO 3", start: 13 * 60 + 30, end: 15 * 60, startText: "1:30 PM", endText: "3:00 PM", next: "School ends in", accent: "#39ff14" }
+                { key: 'ako1', name: 'AKO 1', start: 9 * 60 + 10, end: 10 * 60 + 40, startText: '9:10 AM', endText: '10:40 AM', next: 'Interval starts in', accent: '#00ffff' },
+                { key: 'interval', name: 'INTERVAL', start: 10 * 60 + 40, end: 11 * 60 + 15, startText: '10:40 AM', endText: '11:15 AM', next: 'AKO 2 starts in', accent: '#ff593d' },
+                { key: 'ako2', name: 'AKO 2', start: 11 * 60 + 15, end: 12 * 60 + 45, startText: '11:15 AM', endText: '12:45 PM', next: 'Lunch starts in', accent: '#ff0099' },
+                { key: 'lunch', name: 'LUNCH', start: 12 * 60 + 45, end: 13 * 60 + 30, startText: '12:45 PM', endText: '1:30 PM', next: 'AKO 3 starts in', accent: '#ccff00' },
+                { key: 'ako3', name: 'AKO 3', start: 13 * 60 + 30, end: 15 * 60, startText: '1:30 PM', endText: '3:00 PM', next: 'School ends in', accent: '#39ff14' }
             ];
 
             function nextWeekdayStart(now) {
                 const target = new Date(now);
                 target.setHours(9, 10, 0, 0);
                 if (target <= now) target.setDate(target.getDate() + 1);
-                while (target.getDay() === 0 || target.getDay() === 6) {
-                    target.setDate(target.getDate() + 1);
-                }
+                while (target.getDay() === 0 || target.getDay() === 6) target.setDate(target.getDate() + 1);
                 return target;
             }
 
@@ -1378,12 +1249,10 @@
                 const hours = Math.floor(safeSeconds / 3600);
                 const minutes = Math.floor((safeSeconds % 3600) / 60);
                 const seconds = safeSeconds % 60;
-
                 if (hours > 0) {
-                    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
                 }
-
-                return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
             }
 
             function readableDuration(secondsLeft) {
@@ -1392,12 +1261,10 @@
                 const minutes = Math.floor((total % 3600) / 60);
                 const seconds = total % 60;
                 const parts = [];
-
-                if (hours) parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
-                if (minutes || hours) parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
-                parts.push(`${seconds} second${seconds === 1 ? "" : "s"}`);
-
-                return parts.join(", ");
+                if (hours) parts.push(`${hours} hour${hours === 1 ? '' : 's'}`);
+                if (minutes || hours) parts.push(`${minutes} minute${minutes === 1 ? '' : 's'}`);
+                parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`);
+                return parts.join(', ');
             }
 
             function updateClassTimer() {
@@ -1405,27 +1272,24 @@
                 const secondsNow = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
                 const minutesNow = secondsNow / 60;
                 const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-                const activePeriod = !isWeekend
-                    ? timetable.find(item => minutesNow >= item.start && minutesNow < item.end)
-                    : null;
-
+                const activePeriod = !isWeekend ? timetable.find(item => minutesNow >= item.start && minutesNow < item.end) : null;
                 let targetDate = null;
-                let targetTitle = "";
-                let periodTitle = "";
-                let periodDetail = "";
-                let badgeText = "";
+                let targetTitle = '';
+                let periodTitle = '';
+                let periodDetail = '';
+                let badgeText = '';
                 let progress = 0;
                 let activeKey = null;
                 let upNextKey = null;
-                let noteText = "";
+                let noteText = '';
 
                 if (isWeekend) {
                     targetDate = nextWeekdayStart(now);
-                    targetTitle = "Next school day starts in";
-                    periodTitle = "WEEKEND MODE";
-                    periodDetail = "No classes are scheduled on Saturday or Sunday.";
-                    badgeText = "WEEKEND MODE";
-                    noteText = `Next weekday start: ${new Intl.DateTimeFormat(undefined, { weekday: "long", hour: "numeric", minute: "2-digit" }).format(targetDate)}.`;
+                    targetTitle = 'Next school day starts in';
+                    periodTitle = 'WEEKEND MODE';
+                    periodDetail = 'No classes are scheduled on Saturday or Sunday.';
+                    badgeText = 'WEEKEND MODE';
+                    noteText = `Next weekday start: ${new Intl.DateTimeFormat(undefined, { weekday: 'long', hour: 'numeric', minute: '2-digit' }).format(targetDate)}.`;
                 } else if (activePeriod) {
                     targetDate = new Date(now);
                     targetDate.setHours(Math.floor(activePeriod.end / 60), activePeriod.end % 60, 0, 0);
@@ -1435,54 +1299,43 @@
                     badgeText = `NOW: ${activePeriod.name}`;
                     progress = ((minutesNow - activePeriod.start) / (activePeriod.end - activePeriod.start)) * 100;
                     activeKey = activePeriod.key;
-
                     const nextPeriod = timetable.find(item => item.start === activePeriod.end);
                     upNextKey = nextPeriod ? nextPeriod.key : null;
                     noteText = `${Math.max(0, Math.floor(minutesNow - activePeriod.start))} minutes into this period.`;
                 } else if (minutesNow < timetable[0].start) {
                     targetDate = new Date(now);
                     targetDate.setHours(9, 10, 0, 0);
-                    targetTitle = "AKO 1 starts in";
-                    periodTitle = "BEFORE SCHOOL";
-                    periodDetail = "First period starts at 9:10 AM.";
-                    badgeText = "BEFORE SCHOOL";
-                    upNextKey = "ako1";
-                    noteText = "Get ready for the first period.";
+                    targetTitle = 'AKO 1 starts in';
+                    periodTitle = 'BEFORE SCHOOL';
+                    periodDetail = 'First period starts at 9:10 AM.';
+                    badgeText = 'BEFORE SCHOOL';
+                    upNextKey = 'ako1';
+                    noteText = 'Get ready for the first period.';
                 } else {
                     targetDate = nextWeekdayStart(now);
-                    periodTitle = "SCHOOL DAY COMPLETE";
-                    periodDetail = "The last bell is at 3:00 PM.";
-                    badgeText = "DAY COMPLETE";
-                    targetTitle = "Next school day starts in";
-                    noteText = `Next weekday start: ${new Intl.DateTimeFormat(undefined, { weekday: "long", hour: "numeric", minute: "2-digit" }).format(targetDate)}.`;
+                    targetTitle = 'Next school day starts in';
+                    periodTitle = 'SCHOOL DAY COMPLETE';
+                    periodDetail = 'The last bell is at 3:00 PM.';
+                    badgeText = 'DAY COMPLETE';
+                    noteText = `Next weekday start: ${new Intl.DateTimeFormat(undefined, { weekday: 'long', hour: 'numeric', minute: '2-digit' }).format(targetDate)}.`;
                 }
 
                 const left = Math.max(0, Math.ceil((targetDate.getTime() - now.getTime()) / 1000));
-
                 countdown.textContent = formatCountdown(left);
-                countdown.setAttribute("aria-label", readableDuration(left) + " remaining");
+                countdown.setAttribute('aria-label', readableDuration(left) + ' remaining');
                 timerLabel.textContent = targetTitle;
-                timerTarget.textContent = targetDate
-                    ? `at ${new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(targetDate)}`
-                    : "";
+                timerTarget.textContent = targetDate ? `at ${new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(targetDate)}` : '';
                 timerNote.textContent = noteText;
                 timerStatus.textContent = badgeText;
                 currentPeriod.textContent = periodTitle;
                 currentPeriodDetail.textContent = periodDetail;
-                timerProgress.setAttribute("aria-valuenow", String(Math.round(progress)));
+                timerProgress.setAttribute('aria-valuenow', String(Math.round(progress)));
                 timerProgressFill.style.width = `${Math.max(0, Math.min(100, progress))}%`;
-
-                document.querySelector(".class-timer").style.setProperty(
-                    "--timer-accent",
-                    activePeriod ? activePeriod.accent : "#b66bff"
-                );
+                document.querySelector('.class-timer').style.setProperty('--timer-accent', activePeriod ? activePeriod.accent : '#b66bff');
 
                 for (const item of scheduleItems) {
-                    item.classList.toggle("is-active", item.dataset.phase === activeKey);
-                    item.classList.toggle(
-                        "is-up-next",
-                        item.dataset.phase === upNextKey && item.dataset.phase !== activeKey
-                    );
+                    item.classList.toggle('is-active', item.dataset.phase === activeKey);
+                    item.classList.toggle('is-up-next', item.dataset.phase === upNextKey && item.dataset.phase !== activeKey);
                 }
             }
 
@@ -1491,100 +1344,72 @@
                 let visible = 0;
 
                 for (const card of cards) {
-                    const haystack = `${card.dataset.search || ""} ${card.textContent}`.toLowerCase();
+                    const haystack = `${card.dataset.search || ''} ${card.textContent}`.toLowerCase();
                     const matches = haystack.includes(query);
                     card.hidden = !matches;
                     if (matches) visible++;
                 }
 
                 for (const section of sections) {
-                    section.hidden = !section.querySelector(".link-card:not([hidden])");
+                    section.hidden = !section.querySelector('.link-card:not([hidden])');
                 }
 
                 count.textContent = query
-                    ? `${visible} result${visible === 1 ? "" : "s"}`
+                    ? `${visible} result${visible === 1 ? '' : 's'}`
                     : `${visible} links ready`;
-
                 emptyState.hidden = visible !== 0;
             }
 
-            searchInput.addEventListener("input", filterLinks);
+            searchInput.addEventListener('input', filterLinks);
             updateClock();
             updateClassTimer();
             window.setInterval(updateClock, 1000);
             window.setInterval(updateClassTimer, 1000);
 
-            const bioTooltip = document.querySelector("#hover-bio");
-            const bioCards = [...document.querySelectorAll(".link-card[data-bio]")];
+            // Custom neon bios appear on pointer hover and keyboard focus.
+            const bioTooltip = document.querySelector('#hover-bio');
+            const bioCards = [...document.querySelectorAll('.link-card[data-bio]')];
             let activeBioCard = null;
-
             function positionBio(card) {
                 const rect = card.getBoundingClientRect();
                 const tooltipRect = bioTooltip.getBoundingClientRect();
                 const gap = 10;
                 let top = rect.top - tooltipRect.height - gap;
-
-                if (top < 8) {
-                    top = Math.min(window.innerHeight - tooltipRect.height - 8, rect.bottom + gap);
-                }
-
-                const left = Math.max(
-                    8,
-                    Math.min(
-                        window.innerWidth - tooltipRect.width - 8,
-                        rect.left + (rect.width - tooltipRect.width) / 2
-                    )
-                );
-
+                if (top < 8) top = Math.min(window.innerHeight - tooltipRect.height - 8, rect.bottom + gap);
+                const left = Math.max(8, Math.min(window.innerWidth - tooltipRect.width - 8, rect.left + (rect.width - tooltipRect.width) / 2));
                 bioTooltip.style.top = `${Math.max(8, top)}px`;
                 bioTooltip.style.left = `${left}px`;
             }
-
             function showBio(card) {
                 activeBioCard = card;
-                bioTooltip.textContent = card.dataset.bio || "";
-                bioTooltip.style.setProperty(
-                    "--bio-accent",
-                    getComputedStyle(card).getPropertyValue("--accent").trim() || "var(--green)"
-                );
+                bioTooltip.textContent = card.dataset.bio || '';
+                bioTooltip.style.setProperty('--bio-accent', getComputedStyle(card).getPropertyValue('--accent').trim() || 'var(--green)');
                 bioTooltip.hidden = false;
-                card.setAttribute("aria-describedby", "hover-bio");
+                card.setAttribute('aria-describedby', 'hover-bio');
                 positionBio(card);
             }
-
             function hideBio(card) {
-                if (document.activeElement === card || card.matches(":hover")) return;
-
-                card.removeAttribute("aria-describedby");
-
+                if (document.activeElement === card || card.matches(':hover')) return;
+                card.removeAttribute('aria-describedby');
                 if (activeBioCard === card) {
                     bioTooltip.hidden = true;
                     activeBioCard = null;
                 }
             }
-
             for (const card of bioCards) {
-                card.addEventListener("pointerenter", () => showBio(card));
-                card.addEventListener("pointerleave", () => hideBio(card));
-                card.addEventListener("focus", () => showBio(card));
-
-                card.addEventListener("blur", () => {
-                    card.removeAttribute("aria-describedby");
-
-                    if (activeBioCard === card && !card.matches(":hover")) {
+                card.addEventListener('pointerenter', () => showBio(card));
+                card.addEventListener('pointerleave', () => hideBio(card));
+                card.addEventListener('focus', () => showBio(card));
+                card.addEventListener('blur', () => {
+                    card.removeAttribute('aria-describedby');
+                    if (activeBioCard === card && !card.matches(':hover')) {
                         bioTooltip.hidden = true;
                         activeBioCard = null;
                     }
                 });
             }
-
-            window.addEventListener("resize", () => {
-                if (activeBioCard && !bioTooltip.hidden) positionBio(activeBioCard);
-            });
-
-            window.addEventListener("scroll", () => {
-                if (activeBioCard && !bioTooltip.hidden) positionBio(activeBioCard);
-            }, { passive: true });
+            window.addEventListener('resize', () => { if (activeBioCard && !bioTooltip.hidden) positionBio(activeBioCard); });
+            window.addEventListener('scroll', () => { if (activeBioCard && !bioTooltip.hidden) positionBio(activeBioCard); }, { passive: true });
         })();
     </script>
 </body>
