@@ -1015,187 +1015,128 @@
     </div>
     <div id="hover-bio" class="hover-bio" role="tooltip" hidden></div>
 
-    <script>
-        (() => {
-            // Replace these two values in the source file to enable shared chat.
-            // Use the project URL and publishable key only; never put a secret/service_role key here.
-            const SUPABASE_URL = "https://ginjqpzokxjzxxvtqqxu.supabase.co";
-            const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cH4Mw-t_ZilfVNHj7_ZDSw_iBknykhM";
-            const PREVIEW_KEY = "dopedash-chat-preview-v1";
-            const MAX_MESSAGES = 50;
-            const allowedPalette = ["#b66bff", "#00ffff", "#ff0099", "#ff593d", "#ccff00", "#39ff14", "#ff7ac8"];
+    
+            const configured =
+                SUPABASE_URL.startsWith("https://") &&
+                SUPABASE_URL.endsWith(".supabase.co") &&
+                SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
 
-            const status = document.querySelector("#chat-connection-status");
-            const messagesNode = document.querySelector("#chat-messages");
-            const emptyNode = document.querySelector("#chat-empty");
-            const form = document.querySelector("#chat-form");
-            const nameInput = document.querySelector("#chat-username");
-            const messageInput = document.querySelector("#chat-message-input");
-            const sendButton = document.querySelector("#chat-send");
-            const feedback = document.querySelector("#chat-feedback");
-            const charCount = document.querySelector("#chat-char-count");
-
-            let client = null;
-            let liveReady = false;
-            let isPreview = false;
-            let messageList = [];
-            let lastSentAt = 0;
-
-            function setStatus(label, mode, note) {
-                status.textContent = label;
-                status.dataset.mode = mode;
-                if (note) {
-                    const subtitle = document.querySelector(".chat-subtitle");
-                    if (subtitle) subtitle.textContent = note;
-                }
-            }
-
-            function safeLocalRead() {
-                try {
-                    const saved = JSON.parse(localStorage.getItem(PREVIEW_KEY) || "[]");
-                    return Array.isArray(saved) ? saved.filter(item => item && typeof item.username === "string" && typeof item.message === "string").slice(-MAX_MESSAGES) : [];
-                } catch (_) { return []; }
-            }
-
-            function saveLocalPreview() {
-                try { localStorage.setItem(PREVIEW_KEY, JSON.stringify(messageList.slice(-MAX_MESSAGES))); }
-                catch (_) { feedback.textContent = "This browser couldn't save preview messages."; }
-            }
-
-            function paletteFor(name) {
-                let hash = 0;
-                for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-                return allowedPalette[hash % allowedPalette.length];
-            }
-
-            function formatMessageTime(value) {
-                const date = new Date(value || Date.now());
-                if (Number.isNaN(date.getTime())) return "now";
-                return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
-            }
-
-            function appendMessage(message) {
-                if (!message || messageList.some(item => String(item.id) === String(message.id))) return;
-                messageList.push(message);
-                while (messageList.length > MAX_MESSAGES) {
-                    messageList.shift();
-                    const firstMessage = messagesNode.querySelector(".chat-message");
-                    if (firstMessage) firstMessage.remove();
-                }
-
-                const row = document.createElement("article");
-                row.className = "chat-message";
-                row.style.setProperty("--message-accent", paletteFor(message.username));
-
-                const header = document.createElement("div");
-                header.className = "chat-message-head";
-                const username = document.createElement("span");
-                username.className = "chat-message-name";
-                username.textContent = message.username;
-                const time = document.createElement("time");
-                time.className = "chat-message-time";
-                time.dateTime = message.created_at || new Date().toISOString();
-                time.textContent = formatMessageTime(message.created_at);
-                header.append(username, time);
-
-                const body = document.createElement("p");
-                body.className = "chat-message-text";
-                // textContent prevents chat messages from being interpreted as HTML.
-                body.textContent = message.message;
-                row.append(header, body);
-                messagesNode.append(row);
-                emptyNode.hidden = true;
-                messagesNode.scrollTop = messagesNode.scrollHeight;
-            }
-
-            function renderInitialMessages(items) {
-                messageList = [];
-                messagesNode.querySelectorAll(".chat-message").forEach(node => node.remove());
-                emptyNode.hidden = false;
-                for (const item of items) appendMessage(item);
-                emptyNode.hidden = messageList.length !== 0;
-            }
-
-            function validName(name) {
-                return name.length >= 1 && name.length <= 20 && /^[A-Za-z0-9 _-]+$/.test(name);
-            }
-
-            function setComposerEnabled(enabled) {
-                nameInput.disabled = !enabled;
-                messageInput.disabled = !enabled;
-                sendButton.disabled = !enabled;
-            }
-
-            messageInput.addEventListener("input", () => {
-                charCount.textContent = `${messageInput.value.length}/280`;
-            });
-
-            nameInput.value = localStorage.getItem("dopedash-chat-nickname") || "";
-            nameInput.addEventListener("change", () => {
-                const cleanName = nameInput.value.trim().replace(/\s+/g, " ");
-                if (validName(cleanName)) {
-                    nameInput.value = cleanName;
-                    try { localStorage.setItem("dopedash-chat-nickname", cleanName); } catch (_) {}
-                }
-            });
-
-            const configured = SUPABASE_URL.startsWith("Paste_") &&
-    !SUPABASE_URL.includes("Paste_") &&
-    SUPABASE_PUBLISHABLE_KEY.length > 10 &&
-    !SUPABASE_PUBLISHABLE_KEY.includes("sb_publishable_cH4Mw-t_ZilfVNHj7_ZDSw_iBknykhM");
             async function startPreviewMode() {
                 isPreview = true;
                 renderInitialMessages(safeLocalRead());
-                setStatus("LOCAL PREVIEW", "preview", "Preview mode // visible only in this browser");
+                setStatus(
+                    "LOCAL PREVIEW",
+                    "preview",
+                    "Preview mode // visible only in this browser"
+                );
                 setComposerEnabled(true);
+
                 window.addEventListener("storage", event => {
                     if (event.key !== PREVIEW_KEY || !event.newValue) return;
+
                     try {
                         const incoming = JSON.parse(event.newValue);
                         if (!Array.isArray(incoming)) return;
-                        for (const item of incoming) appendMessage(item);
+
+                        for (const item of incoming) {
+                            appendMessage(item);
+                        }
                     } catch (_) {}
                 });
             }
 
             async function startLiveMode() {
-                setStatus("CONNECTING", "connecting", "Connecting to the live chat…");
+                setStatus(
+                    "CONNECTING",
+                    "connecting",
+                    "Connecting to the live chat..."
+                );
                 setComposerEnabled(false);
+
                 try {
-                    const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
-                    client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+                    const { createClient } = await import(
+                        "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+                    );
+
+                    client = createClient(
+                        SUPABASE_URL,
+                        SUPABASE_PUBLISHABLE_KEY
+                    );
+
                     client.channel("dopedash-public-chat")
-                        .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, payload => {
-                            appendMessage(payload.new);
-                        })
+                        .on(
+                            "postgres_changes",
+                            {
+                                event: "INSERT",
+                                schema: "public",
+                                table: "chat_messages"
+                            },
+                            payload => {
+                                appendMessage(payload.new);
+                            }
+                        )
                         .subscribe(async channelStatus => {
                             if (channelStatus === "SUBSCRIBED") {
                                 liveReady = true;
-                                setStatus("LIVE // CONNECTED", "live", "Live chat // connected");
+
+                                setStatus(
+                                    "LIVE // CONNECTED",
+                                    "live",
+                                    "Live chat // connected"
+                                );
                                 setComposerEnabled(true);
-                                const { data, error } = await client.from("chat_messages")
+
+                                const { data, error } = await client
+                                    .from("chat_messages")
                                     .select("id, username, message, created_at")
                                     .order("created_at", { ascending: false })
                                     .limit(MAX_MESSAGES);
+
                                 if (error) {
-                                    feedback.textContent = "Couldn't load chat history. Check the database setup.";
+                                    feedback.textContent =
+                                        "Couldn't load chat history: " +
+                                        error.message;
                                     return;
                                 }
-                                renderInitialMessages((data || []).reverse());
-                            } else if (channelStatus === "CHANNEL_ERROR" || channelStatus === "TIMED_OUT" || channelStatus === "CLOSED") {
+
+                                renderInitialMessages(
+                                    (data || []).reverse()
+                                );
+
+                            } else if (
+                                channelStatus === "CHANNEL_ERROR" ||
+                                channelStatus === "TIMED_OUT" ||
+                                channelStatus === "CLOSED"
+                            ) {
                                 liveReady = false;
-                                setStatus("CHAT OFFLINE", "error", "Live chat disconnected");
+
+                                setStatus(
+                                    "CHAT OFFLINE",
+                                    "error",
+                                    "Live chat disconnected"
+                                );
                                 setComposerEnabled(false);
-                                feedback.textContent = "Chat couldn't connect. Refresh the page and check the project settings.";
+
+                                feedback.textContent =
+                                    "Chat couldn't connect. Check your Supabase settings, database permissions, and Realtime configuration.";
                             }
                         });
-                } catch (_) {
+
+                } catch (error) {
                     liveReady = false;
-                    setStatus("CHAT OFFLINE", "error", "Live chat couldn't load");
+
+                    setStatus(
+                        "CHAT OFFLINE",
+                        "error",
+                        "Live chat couldn't load"
+                    );
                     setComposerEnabled(false);
-                    feedback.textContent = "Chat couldn't load. Check your connection and the Supabase settings.";
+
+                    feedback.textContent =
+                        "Chat couldn't load: " + error.message;
                 }
             }
+
 
             form.addEventListener("submit", async event => {
                 event.preventDefault();
