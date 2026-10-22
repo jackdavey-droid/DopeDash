@@ -911,6 +911,7 @@
                         <span class="vpn-tag">[ VPN REQUIRED ]</span>
                         <span class="card-description">Endless Runner // Arcade</span>
                         <span class="card-action">Open Subway Surfers <span aria-hidden="true">→</span></span>
+                    </a>
 
                     <a href="https://nuts.gg/play/pDSoWmhW" target="_blank" rel="noopener noreferrer" class="link-card accent-games" data-search="nuts.gg nuts gg games browser gaming" data-bio="Opens Nuts.gg in a new tab.">
                         <span class="card-top"><span class="card-index">08 / GAME</span><span class="card-arrow" aria-hidden="true">↗</span></span>
@@ -918,8 +919,6 @@
                         <span class="vpn-tag">[ VPN REQUIRED ]</span>
                         <span class="card-description">Gaming Hub</span>
                         <span class="card-action">Open Nuts.gg <span aria-hidden="true">→</span></span>
-                    </a>
-
                     </a>
                 </div>
             </section>
@@ -1015,11 +1014,151 @@
     </div>
     <div id="hover-bio" class="hover-bio" role="tooltip" hidden></div>
 
-    
+    <script type="module">
+        (() => {
+            const SUPABASE_URL = "https://ginjqpzokxjzxxvtqqxu.supabase.co";
+            const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cH4Mw-t_ZilfVNHj7_ZDSw_iBknykhM";
+
+            const form = document.querySelector("#chat-form");
+            const nameInput = document.querySelector("#chat-username");
+            const messageInput = document.querySelector("#chat-message-input");
+            const sendButton = document.querySelector("#chat-send");
+            const charCount = document.querySelector("#chat-char-count");
+            const feedback = document.querySelector("#chat-feedback");
+            const messagesContainer = document.querySelector("#chat-messages");
+            const chatEmpty = document.querySelector("#chat-empty");
+            const connectionStatus = document.querySelector("#chat-connection-status");
+
+            if (!form || !nameInput || !messageInput || !sendButton || !charCount || !feedback || !messagesContainer || !chatEmpty || !connectionStatus) return;
+
+            const MAX_MESSAGES = 100;
+            const PREVIEW_KEY = "dopedash-chat-preview";
+            const NICKNAME_KEY = "dopedash-chat-nickname";
+
+            let client = null;
+            let isPreview = false;
+            let liveReady = false;
+            let lastSentAt = 0;
+
+            function normalizeSupabaseUrl(value) {
+                if (typeof value !== "string") return "";
+
+                try {
+                    const parsed = new URL(value.trim());
+                    if (parsed.protocol !== "https:") return "";
+                    return `${parsed.protocol}//${parsed.hostname}`;
+                } catch (_) {
+                    return "";
+                }
+            }
+
+            function isPlaceholderValue(value) {
+                return /(^your_|^paste_|_here$|placeholder|change_me|example|your_supabase|paste_supabase)/i.test(value);
+            }
+
+            function isLikelyPublicSupabaseKey(value) {
+                return value.startsWith("sb_publishable_") || /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value);
+            }
+
+            const normalizedSupabaseUrl = normalizeSupabaseUrl(SUPABASE_URL);
+            const normalizedSupabaseKey = typeof SUPABASE_PUBLISHABLE_KEY === "string"
+                ? SUPABASE_PUBLISHABLE_KEY.trim()
+                : "";
+
             const configured =
-                SUPABASE_URL.startsWith("https://") &&
-                SUPABASE_URL.endsWith(".supabase.co") &&
-                SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
+                normalizedSupabaseUrl.endsWith(".supabase.co") &&
+                !isPlaceholderValue(normalizedSupabaseUrl) &&
+                normalizedSupabaseKey.length > 20 &&
+                !isPlaceholderValue(normalizedSupabaseKey) &&
+                !normalizedSupabaseKey.startsWith("sb_secret_") &&
+                !normalizedSupabaseKey.includes("service_role") &&
+                isLikelyPublicSupabaseKey(normalizedSupabaseKey);
+
+            function validName(name) {
+                return /^[A-Za-z0-9 _-]{1,20}$/.test(name);
+            }
+
+            function setStatus(label, mode, title) {
+                connectionStatus.textContent = label;
+                connectionStatus.dataset.mode = mode;
+                connectionStatus.title = title;
+            }
+
+            function setComposerEnabled(enabled) {
+                nameInput.disabled = !enabled;
+                messageInput.disabled = !enabled;
+                sendButton.disabled = !enabled;
+            }
+
+            function safeLocalRead() {
+                try {
+                    const saved = JSON.parse(localStorage.getItem(PREVIEW_KEY) || "[]");
+                    return Array.isArray(saved) ? saved : [];
+                } catch (_) {
+                    return [];
+                }
+            }
+
+            function saveLocalPreview() {
+                try {
+                    const messages = [...messagesContainer.querySelectorAll(".chat-message")].map(item => ({
+                        id: item.dataset.id,
+                        username: item.querySelector(".chat-message-name")?.textContent || "Guest",
+                        message: item.querySelector(".chat-message-text")?.textContent || "",
+                        created_at: item.dataset.createdAt || new Date().toISOString()
+                    }));
+                    localStorage.setItem(PREVIEW_KEY, JSON.stringify(messages.slice(-MAX_MESSAGES)));
+                } catch (_) {}
+            }
+
+            function appendMessage(item) {
+                if (!item || typeof item.username !== "string" || typeof item.message !== "string") return;
+
+                if (item.id != null && messagesContainer.querySelector(`[data-id="${CSS.escape(String(item.id))}"]`)) return;
+
+                chatEmpty.hidden = true;
+
+                const messageElement = document.createElement("article");
+                messageElement.className = "chat-message";
+                if (item.id != null) messageElement.dataset.id = String(item.id);
+                messageElement.dataset.createdAt = item.created_at || new Date().toISOString();
+
+                const head = document.createElement("div");
+                head.className = "chat-message-head";
+
+                const username = document.createElement("span");
+                username.className = "chat-message-name";
+                username.textContent = item.username.slice(0, 20);
+
+                const timestamp = document.createElement("time");
+                timestamp.className = "chat-message-time";
+                const date = new Date(item.created_at || Date.now());
+                timestamp.dateTime = date.toISOString();
+                timestamp.textContent = new Intl.DateTimeFormat(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                }).format(date);
+
+                const messageText = document.createElement("p");
+                messageText.className = "chat-message-text";
+                messageText.textContent = item.message.slice(0, 280);
+
+                head.append(username, timestamp);
+                messageElement.append(head, messageText);
+                messagesContainer.append(messageElement);
+
+                while (messagesContainer.querySelectorAll(".chat-message").length > MAX_MESSAGES) {
+                    messagesContainer.querySelector(".chat-message")?.remove();
+                }
+
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            function renderInitialMessages(items) {
+                messagesContainer.querySelectorAll(".chat-message").forEach(item => item.remove());
+                chatEmpty.hidden = items.length > 0;
+                items.slice(-MAX_MESSAGES).forEach(appendMessage);
+            }
 
             async function startPreviewMode() {
                 isPreview = true;
@@ -1059,11 +1198,11 @@
                     );
 
                     client = createClient(
-                        SUPABASE_URL,
-                        SUPABASE_PUBLISHABLE_KEY
+                        normalizedSupabaseUrl,
+                        normalizedSupabaseKey
                     );
 
-                    client.channel("dopedash-public-chat")
+                    const chatChannel = client.channel("dopedash-public-chat")
                         .on(
                             "postgres_changes",
                             {
@@ -1072,9 +1211,11 @@
                                 table: "chat_messages"
                             },
                             payload => {
-                                appendMessage(payload.new);
+                                appendMessage(payload?.new);
                             }
-                        )
+                        );
+
+                    chatChannel
                         .subscribe(async channelStatus => {
                             if (channelStatus === "SUBSCRIBED") {
                                 liveReady = true;
@@ -1086,22 +1227,26 @@
                                 );
                                 setComposerEnabled(true);
 
-                                const { data, error } = await client
-                                    .from("chat_messages")
-                                    .select("id, username, message, created_at")
-                                    .order("created_at", { ascending: false })
-                                    .limit(MAX_MESSAGES);
+                                try {
+                                    const { data, error } = await client
+                                        .from("chat_messages")
+                                        .select("id, username, message, created_at")
+                                        .order("created_at", { ascending: false })
+                                        .limit(MAX_MESSAGES);
 
-                                if (error) {
+                                    if (error) {
+                                        feedback.textContent =
+                                            "Couldn't load chat history: " +
+                                            error.message;
+                                        return;
+                                    }
+
+                                    renderInitialMessages((data || []).reverse());
+                                } catch (error) {
                                     feedback.textContent =
                                         "Couldn't load chat history: " +
-                                        error.message;
-                                    return;
+                                        (error?.message || "Unknown error");
                                 }
-
-                                renderInitialMessages(
-                                    (data || []).reverse()
-                                );
 
                             } else if (
                                 channelStatus === "CHANNEL_ERROR" ||
@@ -1133,9 +1278,17 @@
                     setComposerEnabled(false);
 
                     feedback.textContent =
-                        "Chat couldn't load: " + error.message;
+                        "Chat couldn't load: " + (error?.message || "Unknown error");
                 }
             }
+
+            try {
+                nameInput.value = localStorage.getItem(NICKNAME_KEY) || "";
+            } catch (_) {}
+
+            messageInput.addEventListener("input", () => {
+                charCount.textContent = `${messageInput.value.length}/280`;
+            });
 
 
             form.addEventListener("submit", async event => {
@@ -1181,13 +1334,20 @@
                     return;
                 }
                 sendButton.disabled = true;
-                const { error } = await client.from("chat_messages").insert({ username, message });
-                sendButton.disabled = false;
-                if (error) {
-                    feedback.textContent = error.message && error.message.includes("Please wait")
-                        ? "Please wait a few seconds before posting again."
-                        : "Message didn't send. Check the chat connection and try again.";
+                try {
+                    const { error } = await client.from("chat_messages").insert({ username, message });
+                    if (error) {
+                        feedback.textContent = error.message && error.message.includes("Please wait")
+                            ? "Please wait a few seconds before posting again."
+                            : "Message didn't send. Check the chat connection and try again.";
+                        return;
+                    }
+                } catch (error) {
+                    feedback.textContent =
+                        "Message didn't send. " + (error?.message || "Check the chat connection and try again.");
                     return;
+                } finally {
+                    sendButton.disabled = false;
                 }
                 messageInput.value = "";
                 charCount.textContent = "0/280";
